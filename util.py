@@ -2,7 +2,7 @@
 """
 Created on Thu Sep 24 15:03:45 2015
 
-@author: guogelin
+@author: GlennGuo
 """
 
 import scipy as sci
