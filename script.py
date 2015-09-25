@@ -2,7 +2,7 @@
 """
 Created on Wed Sep 23 14:39:38 2015
 
-@author: guogelin
+@author: GlennGuo
 """
 
 from neuralnetwork import NeuralNetwork
