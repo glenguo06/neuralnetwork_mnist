@@ -57,15 +57,13 @@ def MNIST_Load(filePath = 'mnist_uint8.mat'):
 def Z_score_Scale(x):
     """
     Scale input x with z-score Normalization
-    
-    This function is created because the limitation of computer memory
     """
-    mean_x = np.mean(x, axis = 0)
-    var_x = np.var(x, axis = 0)
+    mean_x = np.mean(x, axis = 1).reshape((1, x.shape[1]))
+    var_x = np.var(x, axis = 0).reshape((1,x.shape[1]))
     
-    for i_row in range(len(x)):
-        scaled_row = (x[i_row,:] - mean_x)/np.sqrt(var_x)
-        x[i_row,:] = scaled_row
+    x = (x-np.tile(mean_x, (len(x),1)))/np.tile(var_x, (len(x),1))
+    
+    return x
         
 
 def MapMinMax(x, ymin = -1.0, ymax = 1.0):

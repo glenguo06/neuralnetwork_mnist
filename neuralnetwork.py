@@ -27,7 +27,9 @@ class NeuralNetwork:
     __best_w = []
     __best_b = []
     
-    def __init__(self, layers, activation = 'logistic', out = 'softmax'):
+    __early_stop = 'on'
+    
+    def __init__(self, layers, activation = 'logistic', out = 'softmax', early_stop = 'on'):
         """
         'layers' declares the stucture of the network,
         including the number of layers & hidden units
@@ -41,7 +43,8 @@ class NeuralNetwork:
         """
         
         self.__units = layers
-          
+        self.__early_stop = early_stop
+        
         if activation == 'logistic':
             self.__f_act = self.__logistic
             self.__f_act_prime = self.__logistic_prime
@@ -77,12 +80,12 @@ class NeuralNetwork:
             'Gradient-Based Learning Applied to Document Recognition.'
             Proceedings of the IEEE, 86, 309 – 318.     
         """
+        
         x = 0.6666 * x
         return 1.7159 * np.sinh(x)/np.cosh(x)
         
     def __logistic(self, x):
-        if not isinstance(x, np.ndarray):
-            x = np.asarray(x)
+        
         return 1.0/(1+np.exp(-x))
         
     def __logistic_prime(self, x):
@@ -120,16 +123,18 @@ class NeuralNetwork:
         softmax hopothesis function
         
         Para:
-            x   :   input numpy.ndarray of m rows 1 column
+            x   :   input numpy.ndarray of m rows 10 columns
         
         Return:
             Transformed numpy.ndarray
         """
+        
         x = np.exp(x)
-        x_sum = np.sum(x,axis=1) #shape = (nsamples,)
-        for row_idx in range(len(x)):
-            x[row_idx,:] /= x_sum[row_idx]
-        return x
+        x_sum = np.sum(x,axis=1).reshape(len(x), 1) #shape = (nsamples,1)
+        x_sum = np.tile(x_sum, (1, x.shape[1]))        
+        x /= x_sum
+        
+        return x        
         
     def __forward_prop(self, X, w, b):
         """
@@ -143,7 +148,7 @@ class NeuralNetwork:
         Return:
             'list' of activation values
         """
-        par_len = len(w) # should be equal to len(b)
+        par_len = len(w) 
         act = []    # activations            
         act.append(X)   # a1 = input 
 
@@ -281,17 +286,18 @@ class NeuralNetwork:
             valid_error.append(self.__predict(valid_set, valid_label))
             
             # Early-stoppiing ?
-            Stop, Save = self.__EarlyStop(valid_error[-1])
-            if not Stop and Save:
-                # save optimal weights                
-                self.__best_w = w
-                self.__best_b = b
-         
-            if Stop and not Save:
-                # Stop Right Here
-                print '<Early top at epoch %d with optimal validation error: %f%% at epoch %d\tTotal duration: %.2f>' %(epoch+1, np.min(valid_error)*100, np.argmin(valid_error)+1, Duration)
-                return cost_trace, valid_error
-            
+            if self.__early_stop == 'on':
+                Stop, Save = self.__EarlyStop(valid_error[-1])
+                if not Stop and Save:
+                    # save optimal weights                
+                    self.__best_w = w
+                    self.__best_b = b
+             
+                if Stop and not Save:
+                    # Stop Right Here
+                    print '<Early top at epoch %d with optimal validation error: %f%% at epoch %d\tTotal duration: %.2f>' %(epoch+1, np.min(valid_error)*100, np.argmin(valid_error)+1, Duration)
+                    return cost_trace, valid_error
+                
             
             end_time = time.time()
             Duration += end_time - start_time
@@ -309,31 +315,21 @@ class NeuralNetwork:
         Predict function privately for validation use
         In contrast to predict(self, X, Y), this function use 'temporary' weights instead of optimal weights
         """
-        a = self.__forward_prop(X, self.__w, self.__b)
+        h = self.__forward_prop(X, self.__w, self.__b)[-1]
         
-        n_err = 0
-        for i_row in range(len(Y)):
-            h_idx = np.argmax(a[-1][i_row,:])
-            y_idx = np.argmax(Y[i_row])
-            if h_idx != y_idx:
-                n_err += 1
+        re = np.argmax(h,axis=1) != np.argmax(Y, axis = 1)
                 
-        err_rate = float(n_err)/len(Y)
+        err_rate = np.float32(np.sum(re))/len(Y)
         
         return err_rate    
     
     def predict(self, X, Y):
         
-        a = self.__forward_prop(X, self.__best_w, self.__best_b)
+        h = self.__forward_prop(X, self.__best_w, self.__best_b)[-1]
         
-        n_err = 0
-        for i_row in range(len(Y)):
-            h_idx = np.argmax(a[-1][i_row,:])
-            y_idx = np.argmax(Y[i_row])
-            if h_idx != y_idx:
-                n_err += 1
+        re = np.argmax(h,axis=1) != np.argmax(Y, axis = 1)
                 
-        err_rate = float(n_err)/len(Y)
+        err_rate = np.float32(np.sum(re))/len(Y)
         
         return err_rate    
 
