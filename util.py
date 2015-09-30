@@ -83,3 +83,5 @@ def MapMinMax(x, ymin = -1.0, ymax = 1.0):
     x = (ymax-ymin)*np.divide((x-xmin),facto) + ymin
     
     return x
+    
+    

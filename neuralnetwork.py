@@ -20,14 +20,18 @@ class NeuralNetwork:
     __f_cost = []
     __f_act_prime = []
     
-    __stop_counter = 40 # emperical based setting, change if you want
+    __stop_counter = 100 # No-improvement in N, N=40
     __tmp_valid_record = []
     __best_valid_err = 1.0
     
     __best_w = []
     __best_b = []
     
+    __h_lr = [] # handler of function which computes learning rate
+    
     __early_stop = 'on'
+    
+    __maxEpoch = 100
     
     def __init__(self, layers, activation = 'logistic', out = 'softmax', early_stop = 'on'):
         """
@@ -44,6 +48,7 @@ class NeuralNetwork:
         
         self.__units = layers
         self.__early_stop = early_stop
+        self.__h_lr = self.__learning_rate        
         
         if activation == 'logistic':
             self.__f_act = self.__logistic
@@ -56,6 +61,10 @@ class NeuralNetwork:
         if activation == 'tanh_old':
             self.__f_act = self.__tanh_old
             self.__f_act_prime = self.__tanh_old_prime
+            
+        if activation == 'Relu':
+            self.__f_act = self.__Relu
+            self.__f_act_prime = self.__Relu_prime
             
         if out == 'softmax':
             self.__f_out = self.__softmax
@@ -91,11 +100,9 @@ class NeuralNetwork:
     def __logistic_prime(self, x):
         """
         Prime of the logistic function
-        
-        * In forward propagation procedure, only activation values of one layer
-        are preserved, so the input of the function is value 'a' rather than 'z'
         """
-        return x*(1.0-x)
+        
+        return self.__logistic(x)*(1.0-self.__logistic(x))
     
     def __tanh_prime(self, x):
         """
@@ -103,10 +110,10 @@ class NeuralNetwork:
         
             f(x) = 1.7159*tanh(0.6666*x)
             f'(x) = 1.1438*(1-f(x)**2)
-        
-        * Reference to __logistic_prime() notification
         """       
-        return 1.1438*(1.0-x**2)
+        x = 0.6666*x
+        
+        return 1.1438*(1.0-self.__tanh_old(x)**2)
     
     def __tanh_old_prime(self, x):
         """
@@ -116,7 +123,23 @@ class NeuralNetwork:
             f'(x) = 1-f(x)**2
         
         """
-        return 1.0-x**2
+        return 1.0-self.__tanh_old(x)**2
+        
+    def __Relu(self, x):
+        """
+        Rectified Linear Units
+        """
+        return x*(x>0)
+        
+    def __Relu_prime(self, x):
+        """
+        Prime of Relu function
+        
+        Relu'(x) = 1, if x>0
+                 = 0, if x<=0
+        """
+        
+        return x/x
         
     def __softmax(self, x):
         """
@@ -148,16 +171,22 @@ class NeuralNetwork:
         Return:
             'list' of activation values
         """
-        par_len = len(w) 
+        par_len = len(w)
+        
+        z = [] # linear product
+        z.append([0]) # z0 = 0, will not be indexed
+        
         act = []    # activations            
         act.append(X)   # a1 = input 
 
         for par_idx in range(par_len-1):
-            act.append(self.__f_act(np.dot(np.insert(act[-1],0,1,axis=1),np.insert(w[par_idx],0,b[par_idx],axis=1).T)))
-
-        act.append(self.__f_out(np.dot(np.insert(act[-1],0,1,axis=1),np.insert(w[-1],0,b[-1],axis=1).T)))
+            z.append(np.dot(np.insert(act[-1],0,1,axis=1),np.insert(w[par_idx],0,b[par_idx],axis=1).T))
+            act.append(self.__f_act(z[-1]))
+        
+        z.append(np.dot(np.insert(act[-1],0,1,axis=1),np.insert(w[-1],0,b[-1],axis=1).T))
+        act.append(self.__f_out(z[-1]))
             
-        return act
+        return z, act
         
     def __back_prop(self, a, Y, w, b):
         """
@@ -242,17 +271,45 @@ class NeuralNetwork:
     def __softmax_costFunction(self, h, y):
             
         return -np.sum(y*np.log(h))/len(y)
+        
+    def __learning_rate(self, lr0, epoch):
+        """
+        Adapt learning rate with O(1/t) schedule
+        where lr = lr0*s/max{epoch, s}.
+        Learning rate stays as a constant during the first 's' epoch
+        
+        Reference:
+            Bergstra, J., Bengio, Y.: Eandom search for hyper-parameter optimization.
+            J. Machine Learning  Res. 13, 281-305 (2012)
+            
+        * Feel free to modify and present your own implementation
+        
+            s = 20
+        
+            return np.float32(lr0)*s/np.max([epoch, s])        
+        """
+        
+        """
+        Dan's Methos
+        """
+        lrs = lr0 * 0.001
+        c = np.power((lrs/lr0), 1.0/self.__maxEpoch)
+        
+        return lr0*np.power(c, epoch)
+        
             
     def train(self, X, Y, w, b, momentum, learningRate, batch_size, nepoch, valid_set, valid_label):
         """
         Train the neural network with gradient descent
         """
+
         cost_trace = []
         cost_epoch = []
         valid_error = []
         Duration = 0
         
         num_of_batch = len(Y)/batch_size
+        self.__maxEpoch = nepoch
         
         for epoch in range(nepoch):
                
@@ -265,13 +322,13 @@ class NeuralNetwork:
                 x = X[idx*batch_size:(idx+1)*batch_size,:]
                 y = Y[idx*batch_size:(idx+1)*batch_size]
                 
-                a = self.__forward_prop(x, w, b)
+                z, a = self.__forward_prop(x, w, b)
                 grad = self.__back_prop(a, y, w, b)
             
                 # update parameters
                 for i in range(len(w)):
-                    w[i] -= learningRate * (grad['w'][i] + momentum * w[i])
-                    b[i] -= learningRate * grad['b'][i]
+                    w[i] -= self.__h_lr(learningRate, epoch+1) * (grad['w'][i] + momentum * w[i])
+                    b[i] -= self.__h_lr(learningRate, epoch+1) * grad['b'][i]
                     
                 cost = self.__f_cost(a[-1], y)
                 cost_local_sum += cost                
@@ -315,7 +372,7 @@ class NeuralNetwork:
         Predict function privately for validation use
         In contrast to predict(self, X, Y), this function use 'temporary' weights instead of optimal weights
         """
-        h = self.__forward_prop(X, self.__w, self.__b)[-1]
+        h = self.__forward_prop(X, self.__w, self.__b)[1][-1]
         
         re = np.argmax(h,axis=1) != np.argmax(Y, axis = 1)
                 
@@ -325,12 +382,19 @@ class NeuralNetwork:
     
     def predict(self, X, Y):
         
-        h = self.__forward_prop(X, self.__best_w, self.__best_b)[-1]
+        h = self.__forward_prop(X, self.__best_w, self.__best_b)[1][-1]
         
         re = np.argmax(h,axis=1) != np.argmax(Y, axis = 1)
                 
         err_rate = np.float32(np.sum(re))/len(Y)
         
         return err_rate    
-
+    
+    def getWeights(self):
+        
+        """
+        return weights
+        """
+        
+        return self.__best_w, self.__best_b
 

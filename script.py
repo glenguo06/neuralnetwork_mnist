@@ -17,17 +17,23 @@ train_x = util.MapMinMax(train_x, -1, 1)
 valid_x = util.MapMinMax(valid_x, -1, 1)
 test_x = util.MapMinMax(test_x, -1, 1)
 
+"""
+train_x = util.MNIST_Scale(train_x)
+valid_x = util.MNIST_Scale(valid_x)
+test_x = util.MNIST_Scale(test_x)
+"""
 # determine network structure and hyperparameters    
+
 layers = np.array([784, 300, 10])
-learningRate = 0.01
+learningRate = 0.001
 momentum = 0.00
-batch_size = 1000
+batch_size = 1
 num_of_batch = len(train_y)/batch_size
 nepoch = 2000
 
 # initialize weights with U ~ [-sqrt(3)/sqrt(k), sqrt(3)/sqrt(k)]
-factor = np.sqrt(3.0) / np.sqrt(layers[0:-1])
-#factor = 0.05 *np.sqrt(layers[0:-1]) / np.sqrt(layers[0:-1])
+#factor = np.sqrt(3.0) / np.sqrt(layers[0:-1])
+factor = 0.05 *np.sqrt(layers[0:-1]) / np.sqrt(layers[0:-1])
 #factor = 1.0*np.sqrt(layers[0:-1]) / np.sqrt(layers[0:-1])
 
 
@@ -37,8 +43,7 @@ for i_o_theta in range(len(layers)-1):
     b.append(np.random.uniform(-factor[i_o_theta], factor[i_o_theta], (1,layers[i_o_theta + 1])))
     
 
-
-nn = NeuralNetwork(layers, 'tanh', 'softmax', 'off')
+nn = NeuralNetwork(layers, 'tanh', 'softmax', 'on')
 cost_trace, valid_err = nn.train(train_x, train_y, w, b, momentum, learningRate, batch_size, nepoch, valid_x, valid_y)
 test_err = nn.predict(test_x, test_y)
 print 'test_err:%.2f%%'%(test_err*100)
