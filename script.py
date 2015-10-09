@@ -13,6 +13,7 @@ import util
 train_x, train_y, valid_x, valid_y, test_x, test_y = util.MNIST_Load()
 
 # Scale data
+"""
 train_x = util.MapMinMax(train_x, -1, 1)
 valid_x = util.MapMinMax(valid_x, -1, 1)
 test_x = util.MapMinMax(test_x, -1, 1)
@@ -21,13 +22,13 @@ test_x = util.MapMinMax(test_x, -1, 1)
 train_x = util.MNIST_Scale(train_x)
 valid_x = util.MNIST_Scale(valid_x)
 test_x = util.MNIST_Scale(test_x)
-"""
+
 # determine network structure and hyperparameters    
 
-layers = np.array([784, 300, 10])
-learningRate = 0.001
+layers = np.array([784, 784, 10])
+learningRate = 0.01
 momentum = 0.00
-batch_size = 1
+batch_size = 100
 num_of_batch = len(train_y)/batch_size
 nepoch = 2000
 
@@ -43,7 +44,9 @@ for i_o_theta in range(len(layers)-1):
     b.append(np.random.uniform(-factor[i_o_theta], factor[i_o_theta], (1,layers[i_o_theta + 1])))
     
 
-nn = NeuralNetwork(layers, 'tanh', 'softmax', 'on')
+nn = NeuralNetwork(layers, 'tanh', 'softmax', early_stop = 'off')
 cost_trace, valid_err = nn.train(train_x, train_y, w, b, momentum, learningRate, batch_size, nepoch, valid_x, valid_y)
 test_err = nn.predict(test_x, test_y)
 print 'test_err:%.2f%%'%(test_err*100)
+
+

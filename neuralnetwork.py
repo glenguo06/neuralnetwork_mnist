@@ -31,6 +31,13 @@ class NeuralNetwork:
     
     __early_stop = 'on'
     
+    __weight_trace = []
+    __bias_trace = []
+    
+    cost_trace = []
+    cost_epoch = []
+    valid_error = []
+    
     __maxEpoch = 100
     
     def __init__(self, layers, activation = 'logistic', out = 'softmax', early_stop = 'on'):
@@ -302,17 +309,23 @@ class NeuralNetwork:
         """
         Train the neural network with gradient descent
         """
-
-        cost_trace = []
-        cost_epoch = []
-        valid_error = []
+        
         Duration = 0
         
         num_of_batch = len(Y)/batch_size
         self.__maxEpoch = nepoch
         
+        assert len(X) == len(Y)
+        
         for epoch in range(nepoch):
-               
+            
+            self.__weight_trace.append(w)
+            self.__bias_trace.append(b)
+
+            shuffle_idx = np.random.permutation(len(X))
+            X = X[shuffle_idx]
+            Y = Y[shuffle_idx]            
+            
             cost_local_sum = 0
             
             start_time = time.time()
@@ -332,19 +345,19 @@ class NeuralNetwork:
                     
                 cost = self.__f_cost(a[-1], y)
                 cost_local_sum += cost                
-                cost_trace.append(cost)
+                self.cost_trace.append(cost)
             
             # save parameters
             self.__w = w
             self.__b = b
                 
             # proceed validation after each epoch
-            cost_epoch.append(cost_local_sum / num_of_batch)
-            valid_error.append(self.__predict(valid_set, valid_label))
+            self.cost_epoch.append(cost_local_sum / num_of_batch)
+            self.valid_error.append(self.__predict(valid_set, valid_label))
             
             # Early-stoppiing ?
             if self.__early_stop == 'on':
-                Stop, Save = self.__EarlyStop(valid_error[-1])
+                Stop, Save = self.__EarlyStop(self.valid_error[-1])
                 if not Stop and Save:
                     # save optimal weights                
                     self.__best_w = w
@@ -352,17 +365,17 @@ class NeuralNetwork:
              
                 if Stop and not Save:
                     # Stop Right Here
-                    print '<Early top at epoch %d with optimal validation error: %f%% at epoch %d\tTotal duration: %.2f>' %(epoch+1, np.min(valid_error)*100, np.argmin(valid_error)+1, Duration)
-                    return cost_trace, valid_error
+                    print '<Early top at epoch %d with optimal validation error: %f%% at epoch %d\tTotal duration: %.2f>' %(epoch+1, np.min(self.valid_error)*100, np.argmin(self.valid_error)+1, Duration)
+                    return self.cost_trace, self.valid_error
                 
             
             end_time = time.time()
             Duration += end_time - start_time
             
-            print 'epoch %d\tE_avg: %.4f\tvalid_error: %.2f%%\tDuration: %.2f second' % (epoch+1, cost_epoch[-1], valid_error[-1]*100, end_time-start_time)
+            print 'epoch %d\tE_avg: %.4f\tvalid_error: %.2f%%\tDuration: %.2f second' % (epoch+1, self.cost_epoch[-1], self.valid_error[-1]*100, end_time-start_time)
         
         print '<WARNING ! No early-stopping case detected, Total duration: %.2f>'%(Duration)
-        return cost_trace, valid_error
+        return self.cost_trace, self.valid_error
         
     
         
@@ -397,4 +410,13 @@ class NeuralNetwork:
         """
         
         return self.__best_w, self.__best_b
-
+        
+    def getWeightsTrace(self):
+        
+        return self.__weight_trace
+        
+    def getBiasTrace(self):
+        
+        return self.__bias_trace
+        
+    

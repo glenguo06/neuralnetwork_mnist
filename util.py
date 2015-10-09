@@ -7,6 +7,7 @@ Created on Thu Sep 24 15:03:45 2015
 
 import scipy as sci
 import numpy as np
+import matplotlib.pyplot as plt
 
 def MNIST_Scale(x):
     """
@@ -83,5 +84,24 @@ def MapMinMax(x, ymin = -1.0, ymax = 1.0):
     x = (ymax-ymin)*np.divide((x-xmin),facto) + ymin
     
     return x
+    
+def visualize(weights, row, column):
+    
+    num =  len(weights)   
+    dim = np.sqrt(weights.shape[1])
+    
+    assert num <= row*column
+    
+    plt.figure()
+    
+    for i in range(num):
+        w = weights[i,:]
+        w.shape += (1,)
+        tmp = w/np.sqrt(np.sum(w**2))
+        img_arr = tmp.reshape(28,28)         
+        plt.subplot(row, column, i+1)
+        plt.imshow(img_arr, cmap='gray')
+        
+    
     
     
