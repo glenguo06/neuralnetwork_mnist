@@ -40,22 +40,42 @@ class NeuralNetwork:
     
     __maxEpoch = 100
     
-    def __init__(self, layers, activation = 'logistic', out = 'softmax', early_stop = 'on'):
+    __reg = 0
+    
+    def __init__(self, layers, activation = 'logistic', out = 'softmax', early_stop = 'on', reg = 0):
         """
-        'layers' declares the stucture of the network,
-        including the number of layers & hidden units
+        Construct an instance of NeuralNetwork with personalized stucture.
         
-        Example:
-        In:    
-            NeuralNetwork(layers = [10,20,10], 'logistic', 'softmax')
+        Parameters:
+        -----------
+        layers : A list containing the number of hidden units of each layers.
+                (including input layer and output layer)
+                `eg. layers=[784,1000,10]`
+        activation : Activation function of each hidden units.
+                [option]:
+                (1)'logistic'
+                (2)'tanh' : a rectified version given by Yann LeCun's publication
+                (3)'tanh_old' : the typical tanh function
+                (4)'Relu' : rectified linear units proposed by Geoff Hinton for 
+                            deeper networks.
+        out : Activation function for output units.
+                [option]:
+                (1)'softmax'
+        early_stop ： Enable/Disable early stopping strategy proposed in Dan's publication
             
-        Out:   
-            The instance of a network              
+        reg : The "Anti-Bayesian" regularization coefficient. The strategy is proposed
+                based on Prof. Oommen's publications.
+                
+        Returns:
+        --------
+            The instance of a structured network
+              
         """
         
         self.__units = layers
         self.__early_stop = early_stop
         self.__h_lr = self.__learning_rate        
+        self.__reg = reg
         
         if activation == 'logistic':
             self.__f_act = self.__logistic
@@ -81,10 +101,12 @@ class NeuralNetwork:
         """
         The original version of tanh function, without any motification
         
-        In:
-            Input ndarray of size (m,n)
+        Parameters:
+        -----------
+        x : Input ndarray of size (m,n)
             
-        Out:
+        Returns:
+        --------
             sinh(x)/cosh(x)
         """
         return np.tanh(x)
@@ -235,7 +257,7 @@ class NeuralNetwork:
         D.append(np.dot(d[0].T,a[-2])/batch_size)
         
         for i in range(ndelta-1, 0, -1):
-            d.append(np.dot(d[-1],w[i])*self.__f_act_prime(a[i]))
+            d.append((np.dot(d[-1],w[i])+self.__reg)*self.__f_act_prime(a[i]))
             D.append(np.dot(d[-1].T,a[i-1])/batch_size)
             
         # reverse delta and grad
@@ -307,7 +329,26 @@ class NeuralNetwork:
             
     def train(self, X, Y, w, b, momentum, learningRate, batch_size, nepoch, valid_set, valid_label):
         """
-        Train the neural network with gradient descent
+        Train the neural network with backpropagation algorithm
+        
+        Parameters:
+        -----------
+        X : Training samples arranged as (m,n) ndarray.
+            m -- the number of samples
+            n -- the number of features of each sample
+        Y : Corrsponding output values of the training set arranged as (m,n) ndarray 
+        w ：A list containing all weights vectors.
+            `eg: w[0] is the weight matrix connecting layer 0 and layer 1`
+        b : A list containing all bias vectors.
+            `eg: b[0] is the bias vector for layer 0`
+        momentum : A hyper-parameter to avoid over-fitting.
+            See "bayesian interpretation of supervised learning" for reference.
+        learningRate : A hyper-parameter controling the speed to update.
+            The value of learning rate during each epoch is "Auto-adjusted"
+            with the scheme proposed by Dan's publication.
+            See "__learning_rate()" in this file for further reference.
+        batch_size : The size of each mini batch.
+        nepoch : The
         """
         
         Duration = 0
@@ -367,7 +408,9 @@ class NeuralNetwork:
                     # Stop Right Here
                     print '<Early top at epoch %d with optimal validation error: %f%% at epoch %d\tTotal duration: %.2f>' %(epoch+1, np.min(self.valid_error)*100, np.argmin(self.valid_error)+1, Duration)
                     return self.cost_trace, self.valid_error
-                
+            else:
+                self.__best_w = w
+                self.__best_b = b
             
             end_time = time.time()
             Duration += end_time - start_time
